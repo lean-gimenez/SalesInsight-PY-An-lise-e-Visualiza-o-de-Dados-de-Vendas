@@ -68,3 +68,54 @@ def tratar_dados(df):
     return df
 
 df_limpo = tratar_dados(df_original)
+
+# ANALISE DE METRICAS
+
+# Copiar o df_limpo num df novo
+df = df_limpo.copy()
+
+# Criacao de colunas derivadas
+# Receita total
+df['receita_total'] = df['quantity'] * df['unit_price']
+
+# Mes
+df['mes'] = df['order_date'].dt.month
+
+# Nome do Mes
+meses = {
+    1:'Janeiro', 2:'Fevereiro', 3:'Março', 4:'Abril',
+    5:'Maio', 6:'Junho', 7:'Julho', 8:'Agosto', 
+    9:'Setembro', 10:'Outubro', 11:'Novembro', 12:'Dezembro'
+    }
+df['mes_nome'] = df['mes'].map(meses)
+
+# Trimestre (no formato Q1–Q4)
+df['trimestre'] = "Q" + df['order_date'].dt.quarter.astype(str) # mudar o formato de int para str e concatenar com 'Q'
+
+# Ano
+df['ano'] = df['order_date'].dt.year
+
+# faixa_receita_item
+# Dados extraidos dos quartis (Q1 = 440.762500, Q2 = 984.740000, Q3 = 1854.877500, max = 4196.500000)
+print(df['receita_total'].describe())
+condicoes = [
+    df['receita_total'] < 440.762500,
+    (df['receita_total'] >= 440.762500) & (df['receita_total'] < 1854.877500),
+    df['receita_total'] >= 1854.877500
+]
+faixas = ['Baixo Valor', 'Medio Valor', 'Alto Valor']
+df['faixa_receita_item'] = "Nao Classificado"
+
+for condicao, faixa in zip(condicoes, faixas):
+    df.loc[condicao, "faixa_receita_item"] = faixa
+
+# VERIFICACAO
+print("")
+print("=== VERIFICACAO: NOVAS COLUNAS ===")
+novas_colunas = ['receita_total', 'mes', 'mes_nome', 'trimestre', 'ano', 'faixa_receita_item']
+print(f"\nTipos de dados\n{df[novas_colunas].dtypes}")
+print(f"\nNulos\n{df[novas_colunas].isnull().sum()}")
+print(f"\nDados unicos: mes\n{df["mes_nome"].unique()}")
+print(f"\nDados unicos: trimestre\n{df["trimestre"].unique()}")
+print(f"\nDados unicos: faixa_receita_item\n{df["faixa_receita_item"].value_counts()}")
+print(f"\nAmostra do DF\n{df[novas_colunas].head()}")
