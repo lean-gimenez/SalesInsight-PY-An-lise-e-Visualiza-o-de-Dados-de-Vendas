@@ -4,7 +4,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Carregar dataset e transformar a dataframe
+# ===========================================
+# === CARREGAR DATASET E TRANSFORMAR A DF ===
+# ===========================================
+
 def carregar_dados():
     dataset = "vendas.csv"
     # Transformar dataset a dataframe
@@ -13,8 +16,10 @@ def carregar_dados():
 
 df_original = carregar_dados()
 
+# =================================
+# === INSPECAO INICIAL DE DADOS ===
+# =================================
 
-# Inspecao inicial de dados
 def inspecao_inicial(df):
     print("\n=== INSPECAO INICIAL DO DATASET ===")
     print(f"\nShape: {df.shape}")
@@ -26,8 +31,10 @@ def inspecao_inicial(df):
 
 inspecao_inicial(df_original)
 
+# ========================
+# === LIMPEZA DE DADOS ===
+# ========================
 
-# Limpeza de dados
 def tratar_dados(df):
     # Para nao modificar o df original
     df = df.copy()
@@ -69,7 +76,9 @@ def tratar_dados(df):
 
 df_limpo = tratar_dados(df_original)
 
-# ANALISE DE METRICAS
+# =========================
+# === COLUNAS DERIVADAS ===
+# =========================
 
 # Copiar o df_limpo num df novo
 df = df_limpo.copy()
@@ -119,3 +128,54 @@ print(f"\nDados unicos: mes\n{df["mes_nome"].unique()}")
 print(f"\nDados unicos: trimestre\n{df["trimestre"].unique()}")
 print(f"\nDados unicos: faixa_receita_item\n{df["faixa_receita_item"].value_counts()}")
 print(f"\nAmostra do DF\n{df[novas_colunas].head()}")
+
+
+
+# ======================
+# === METRICAS DO DF ===
+# ======================
+
+# NOTA: O dataset nao contem info dos ITENS PRODUTOS, apenas as CATEGORIAS.
+#       Entao vou fazer outro tipo de metrica e correlacao de variaveis.
+
+def calcular_metricas(df):
+
+    # Receita total, quantidade vendida e número de vendas por mês
+    resumo_mensal = df.groupby(['mes', 'mes_nome']).agg(
+        receita_total=('receita_total', 'sum'),
+        quantidade=('quantity', 'sum'),
+        n_vendas=('order_id', 'count')
+    ).reset_index()
+
+    # Receita total por produto (categoria) (Top 5, em ordem decrescente)
+    receita_categorias = df.groupby('product_category').agg(
+        receita_total=('receita_total', 'sum')
+    ).reset_index()
+    top_categorias = receita_categorias.sort_values(by='receita_total', ascending=False).head()
+
+    # Receita total e ticket médio por região.
+    receita_regiao = df.groupby('region').agg(
+        receita_total=('receita_total', 'sum'),
+        ticket_medio=('receita_total', 'mean')
+    ).reset_index()
+
+    # Desconto por metodo de pago
+    metodo_categoria_desconto = df.groupby(['payment_method', 'product_category']).agg(
+        vendas_com_desconto=('discount', 'count')
+    ).reset_index()
+
+    metricas = {
+        "POR MÊS": resumo_mensal,
+        "TOP CATEGORIAS": top_categorias,
+        "POR REGIÃO": receita_regiao,
+        "DESCONTO POR PAGAMENTO Y CATEGORIA": metodo_categoria_desconto,
+    }
+
+    return metricas
+
+metricas = calcular_metricas(df)
+
+print()
+for titulo, tabela in metricas.items():
+    print(f"\n=== {titulo} ===")
+    print(tabela.to_string(index=False))
