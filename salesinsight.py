@@ -25,7 +25,7 @@ COL_TRIMESTRE = 'trimestre'
 COL_ANO = 'ano'
 COL_FAIXA = 'faixa_receita_item'
 COL_SEGMENTO = 'segmento_cliente'
-
+COL_FAIXA_DESCONTO = 'faixa_desconto'
 
 
 # ===========================================
@@ -91,6 +91,10 @@ def tratar_dados(df):
     # 3. Remover duplicados
     df = df.drop_duplicates()
     duplicados_removidos = linhas_inicio - len(df)
+
+    # 4. Garantir que quantidade seja int e preco_unidade seja float
+    df[COL_QUANTIDADE] = df[COL_QUANTIDADE].astype(int)
+    df[COL_PRECO_UNIDADE] = df[COL_PRECO_UNIDADE].astype(float)
 
     # ESTADO FINAL
     linhas_final = len(df)
@@ -198,16 +202,30 @@ def calcular_metricas(df):
         ticket_medio=(COL_RECEITA, 'mean')
     ).reset_index()
 
-    # Desconto por metodo de pago
-    metodo_categoria_desconto = df.groupby([COL_PAGAMENTO, COL_CATEGORIA]).agg(
-        vendas_com_desconto=(COL_DESCONTO, 'count')
-    ).reset_index()
+    # Quantidade de vendas com DESCONTO por METODO DE PAGO
+    com_desconto = df[df[COL_DESCONTO] > 0]
+
+    com_desconto[COL_FAIXA_DESCONTO] = df[COL_DESCONTO].apply(
+        lambda x: '<10%' if x < 0.1 else ('10-20%' if x <= 0.2 else '>20%')
+    )
+
+    ordem_descontos = ['<10%', '10-20%', '>20%']
+
+    tabela_descontos = (
+        com_desconto
+        .groupby([COL_PAGAMENTO, COL_FAIXA_DESCONTO])
+        .size()
+        .reset_index(name='quantidade_vendas')
+        .sort_values(by=[COL_PAGAMENTO, COL_FAIXA_DESCONTO],
+                     key=lambda col: col.map(lambda x: ordem_descontos.index(x) if x in ordem_descontos else x)
+                    )
+    )
 
     metricas = {
-        "POR MÊS": resumo_mensal,
-        "TOP CATEGORIAS": top_categorias,
-        "POR REGIÃO": receita_regiao,
-        "DESCONTO POR PAGAMENTO E CATEGORIA": metodo_categoria_desconto,
+        "por_mes": resumo_mensal,
+        "top_categorias": top_categorias,
+        "por_regiao": receita_regiao,
+        "desconto_por_pagamento": tabela_descontos,
     }
 
     return metricas
