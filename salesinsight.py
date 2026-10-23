@@ -4,6 +4,30 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# DEFINIR NOMBES DE COLUNAS AO INICIO COM CONSTANTES. 
+# Colunas originais do dataset
+COL_ID = 'order_id'
+COL_DATA = 'order_date'
+COL_CLIENTE = 'customer_id'
+COL_CATEGORIA = 'product_category'
+COL_REGIAO = 'region'
+COL_QUANTIDADE = 'quantity'
+COL_PRECO_UNIDADE = 'unit_price'
+COL_DESCONTO = 'discount'
+COL_PAGAMENTO = 'payment_method'
+COL_DIAS_ENTREGA = 'delivery_days'
+
+# Colunas derivadas (criadas)
+COL_RECEITA = 'receita_total'
+COL_MES = 'mes'
+COL_MES_NOME = 'mes_nome'
+COL_TRIMESTRE = 'trimestre'
+COL_ANO = 'ano'
+COL_FAIXA = 'faixa_receita_item'
+COL_SEGMENTO = 'segmento_cliente'
+
+
+
 # ===========================================
 # === CARREGAR DATASET E TRANSFORMAR A DF ===
 # ===========================================
@@ -20,116 +44,127 @@ df_original = carregar_dados()
 # === INSPECAO INICIAL DE DADOS ===
 # =================================
 
-def inspecao_inicial(df):
+def inspecionar_dados(df):
+    """Exibe as informacoes estruturais do DataFrame."""
+
     print("\n=== INSPECAO INICIAL DO DATASET ===")
     print(f"\nShape: {df.shape}")
     print(f"\nColunas: {list(df.columns)}")
     print(f"\nTipos de dados:\n{df.dtypes}")
     print(f"\nValores nulos por coluna:\n{df.isnull().sum()}")
     print(f"\nPrimeiros registros:\n{df.head()}")
-    return
 
-inspecao_inicial(df_original)
+inspecionar_dados(df_original)
 
 # ========================
 # === LIMPEZA DE DADOS ===
 # ========================
 
 def tratar_dados(df):
+    """
+    Trata o DataFrame de vendas.
+    Retorna: (df_limpo, relatorio), onde relatorio e um dicionario
+    com as contagens de registros iniciais, convertidas e finais.
+    """
+
     # Para nao modificar o df original
     df = df.copy()
+
     print("\n=== LIMPEZA DE DADOS ===")
-    # ESTADO INICIAL (ANTES DA LIMPEZA)
+
+    # ESTADO INICIAL
     linhas_inicio = len(df)
-    duplicados_inicio = df.duplicated().sum()
 
     # LIMPEZA
-    # 1. remover espacos extras nas colunas de texto
+    # 1. remover espacos extras nas colunas de texto e converter possiveis valores vazios ("") em NaN
     for col in df.select_dtypes(include=['object', 'str']).columns:
         df[col] = df[col].str.strip()
-    # Converter possiveis valores vazios ("") em NaN
     df = df.replace("", np.nan)
 
-    # 2. converter order_date e descartar datas invalidas
-    df['order_date'] = pd.to_datetime(df['order_date'], format='%m/%d/%Y', errors='coerce')
-    datas_invalidas = df["order_date"].isna().sum()
-    df = df.dropna(subset=['order_date'])
+    # 2. converter DATAs e descartar invalidas
+    df[COL_DATA] = pd.to_datetime(df[COL_DATA], format='%m/%d/%Y', errors='coerce')
+    # Ver as datas convertidas antes de fazer metodo dropna
+    convertidas = df[COL_DATA].notna().sum()
+    datas_invalidas = df[COL_DATA].isna().sum()
+    df = df.dropna(subset=[COL_DATA])
 
     # 3. Remover duplicados
     df = df.drop_duplicates()
+    duplicados_removidos = linhas_inicio - len(df)
 
-    # ESTADO FINAL (POST LIMPEZA)
+    # ESTADO FINAL
     linhas_final = len(df)
-    duplicados_final = df.duplicated().sum()
 
     # RELATORIO
-    print("\n=== RELATÓRIO DE LIMPEZA ===")
-    print(f"Linhas antes: {linhas_inicio}")
-    print(f"Linhas depois: {linhas_final}")
-    print(f"Linhas removidas: {linhas_inicio - linhas_final}")
-    print("Sem Nulos")
-    print("Sem Duplicados")
-    print(f"Datas inválidas removidas: {datas_invalidas}")
-    print("DATAFRAME LIMPO:")
-    print(f"{df.head()}")
-    return df
+    relatorio = {
+        'Registros iniciais': linhas_inicio,
+        'Registros convertidos': convertidas,
+        'Registros finais': linhas_final,        
+    }
 
-df_limpo = tratar_dados(df_original)
+    df_limpo = df
+    return df_limpo, relatorio
+
+df_limpo, relatorio = tratar_dados(df_original)
 
 # =========================
 # === COLUNAS DERIVADAS ===
 # =========================
 
-# Copiar o df_limpo num df novo
-df = df_limpo.copy()
+def criar_colunas(df): 
+    # Copiar o df_limpo num df novo
+    df = df.copy()
 
-# Criacao de colunas derivadas
-# Receita total
-df['receita_total'] = df['quantity'] * df['unit_price']
+    # Criacao de colunas derivadas
+    # Receita total
+    df[COL_RECEITA] = df[COL_QUANTIDADE] * df[COL_PRECO_UNIDADE]
 
-# Mes
-df['mes'] = df['order_date'].dt.month
+    # Mes
+    df[COL_MES] = df[COL_DATA].dt.month
 
-# Nome do Mes
-meses = {
-    1:'Janeiro', 2:'Fevereiro', 3:'Março', 4:'Abril',
-    5:'Maio', 6:'Junho', 7:'Julho', 8:'Agosto', 
-    9:'Setembro', 10:'Outubro', 11:'Novembro', 12:'Dezembro'
-    }
-df['mes_nome'] = df['mes'].map(meses)
+    # Nome do Mes
+    meses = {
+        1:'Janeiro', 2:'Fevereiro', 3:'Março', 4:'Abril',
+        5:'Maio', 6:'Junho', 7:'Julho', 8:'Agosto', 
+        9:'Setembro', 10:'Outubro', 11:'Novembro', 12:'Dezembro'
+        }
+    df[COL_MES_NOME] = df[COL_MES].map(meses)
 
-# Trimestre (no formato Q1–Q4)
-df['trimestre'] = "Q" + df['order_date'].dt.quarter.astype(str) # mudar o formato de int para str e concatenar com 'Q'
+    # Trimestre (no formato Q1–Q4)
+    df[COL_TRIMESTRE] = "Q" + df[COL_DATA].dt.quarter.astype(str) # mudar o formato de int para str e concatenar com 'Q'
 
-# Ano
-df['ano'] = df['order_date'].dt.year
+    # Ano
+    df[COL_ANO] = df[COL_DATA].dt.year
 
-# faixa_receita_item
-# Dados extraidos dos quartis (Q1 = 440.762500, Q2 = 984.740000, Q3 = 1854.877500, max = 4196.500000)
-print(df['receita_total'].describe())
-condicoes = [
-    df['receita_total'] < 440.762500,
-    (df['receita_total'] >= 440.762500) & (df['receita_total'] < 1854.877500),
-    df['receita_total'] >= 1854.877500
-]
-faixas = ['Baixo Valor', 'Medio Valor', 'Alto Valor']
-df['faixa_receita_item'] = "Nao Classificado"
+    # faixa_receita_item
+    # Dados extraidos dos quartis (q1 e q3)
+    q1 = df[COL_RECEITA].quantile(0.25)
+    q3 = df[COL_RECEITA].quantile(0.75)
+    condicoes = [
+        df[COL_RECEITA] < q1,
+        (df[COL_RECEITA] >= q1) & (df[COL_RECEITA] < q3),
+        df[COL_RECEITA] >= q3
+    ]
+    faixas = ['Baixo Valor', 'Medio Valor', 'Alto Valor']
+    df[COL_FAIXA] = "Nao Classificado"
 
-for condicao, faixa in zip(condicoes, faixas):
-    df.loc[condicao, "faixa_receita_item"] = faixa
+    for condicao, faixa in zip(condicoes, faixas):
+        df.loc[condicao, COL_FAIXA] = faixa
 
-# VERIFICACAO
-print("")
-print("=== VERIFICACAO: NOVAS COLUNAS ===")
-novas_colunas = ['receita_total', 'mes', 'mes_nome', 'trimestre', 'ano', 'faixa_receita_item']
-print(f"\nTipos de dados\n{df[novas_colunas].dtypes}")
-print(f"\nNulos\n{df[novas_colunas].isnull().sum()}")
-print(f"\nDados unicos: mes\n{df["mes_nome"].unique()}")
-print(f"\nDados unicos: trimestre\n{df["trimestre"].unique()}")
-print(f"\nDados unicos: faixa_receita_item\n{df["faixa_receita_item"].value_counts()}")
-print(f"\nAmostra do DF\n{df[novas_colunas].head()}")
+    # VERIFICACAO
+    print("")
+    print("=== VERIFICACAO: NOVAS COLUNAS ===")
+    novas_colunas = [COL_RECEITA, COL_MES, COL_MES_NOME, COL_TRIMESTRE, COL_ANO, COL_FAIXA]
+    print(f"\nTipos de dados\n{df[novas_colunas].dtypes}")
+    print(f"\nNulos\n{df[novas_colunas].isnull().sum()}")
+    print(f"\nDados unicos: mes\n{df[COL_MES_NOME].unique()}")
+    print(f"\nDados unicos: trimestre\n{df[COL_TRIMESTRE].unique()}")
+    print(f"\nDados unicos: faixa_receita_item\n{df[COL_FAIXA].value_counts()}")
+    print(f"\nAmostra do DF\n{df[novas_colunas].head()}")
 
+    return df
 
+df = criar_colunas(df_limpo)
 
 # ======================
 # === METRICAS DO DF ===
@@ -139,43 +174,96 @@ print(f"\nAmostra do DF\n{df[novas_colunas].head()}")
 #       Entao vou fazer outro tipo de metrica e correlacao de variaveis.
 
 def calcular_metricas(df):
+    """
+    Calcula as metricas agregadas do dataset.
+    Retorna um dicionario no formato {nome_da_metrica: DataFrame}.
+    """
 
     # Receita total, quantidade vendida e número de vendas por mês
-    resumo_mensal = df.groupby(['mes', 'mes_nome']).agg(
-        receita_total=('receita_total', 'sum'),
-        quantidade=('quantity', 'sum'),
-        n_vendas=('order_id', 'count')
+    resumo_mensal = df.groupby([COL_MES, COL_MES_NOME]).agg(
+        receita_total=(COL_RECEITA, 'sum'),
+        quantidade=(COL_QUANTIDADE, 'sum'),
+        n_vendas=(COL_ID, 'count')
     ).reset_index()
 
     # Receita total por produto (categoria) (Top 5, em ordem decrescente)
-    receita_categorias = df.groupby('product_category').agg(
-        receita_total=('receita_total', 'sum')
+    receita_categorias = df.groupby(COL_CATEGORIA).agg(
+        receita_total=(COL_RECEITA, 'sum')
     ).reset_index()
-    top_categorias = receita_categorias.sort_values(by='receita_total', ascending=False).head()
+    top_categorias = receita_categorias.sort_values(by=COL_RECEITA, ascending=False).head()
 
     # Receita total e ticket médio por região.
-    receita_regiao = df.groupby('region').agg(
-        receita_total=('receita_total', 'sum'),
-        ticket_medio=('receita_total', 'mean')
+    receita_regiao = df.groupby(COL_REGIAO).agg(
+        receita_total=(COL_RECEITA, 'sum'),
+        ticket_medio=(COL_RECEITA, 'mean')
     ).reset_index()
 
     # Desconto por metodo de pago
-    metodo_categoria_desconto = df.groupby(['payment_method', 'product_category']).agg(
-        vendas_com_desconto=('discount', 'count')
+    metodo_categoria_desconto = df.groupby([COL_PAGAMENTO, COL_CATEGORIA]).agg(
+        vendas_com_desconto=(COL_DESCONTO, 'count')
     ).reset_index()
 
     metricas = {
         "POR MÊS": resumo_mensal,
         "TOP CATEGORIAS": top_categorias,
         "POR REGIÃO": receita_regiao,
-        "DESCONTO POR PAGAMENTO Y CATEGORIA": metodo_categoria_desconto,
+        "DESCONTO POR PAGAMENTO E CATEGORIA": metodo_categoria_desconto,
     }
 
     return metricas
 
 metricas = calcular_metricas(df)
 
-print()
-for titulo, tabela in metricas.items():
-    print(f"\n=== {titulo} ===")
-    print(tabela.to_string(index=False))
+def resumo(dict):
+    print()
+    for titulo, tabela in dict.items():
+        print(f"\n=== {titulo} ===")
+        print(tabela.to_string(index=False))
+
+resumo = resumo(metricas)
+
+# ===============================
+# === SEGMENTACAO DE CLIENTES ===
+# ===============================
+
+def segmentar_clientes(df):
+    """
+    Agrupa por cliente, soma a receita 
+    e classifica em Bronze / Prata / Ouro.
+    Retorna um DataFrame com: cliente, total_gasto, segmento.
+    """
+
+    # Agrupar por cliente e receita. Renomear colunas.
+    clientes = (
+        df.groupby(COL_CLIENTE)[COL_RECEITA]
+        .sum()
+        .reset_index()
+        .rename(columns={COL_CLIENTE:'cliente', COL_RECEITA:'total_gasto'})
+    )
+
+    clientes['segmento'] = clientes['total_gasto'].apply(
+        lambda x: 'Bronze' if x < 5000 else ('Prata' if x <= 15000 else 'Ouro')
+    )
+
+    print("\nTOP 10 CLIENTES")
+    top10_clientes = clientes.sort_values(by='total_gasto', ascending=False).head(10)
+    print(top10_clientes.to_string(index=False))
+
+    # DISTRIBUICAO POR SEGMENTO
+    resumo_segmento = clientes.groupby('segmento').agg(
+        n_clientes=('cliente', 'count'),
+        total_gasto=('total_gasto', 'sum'),
+    )
+    resumo_segmento['%_clientes'] = (resumo_segmento['n_clientes'] / resumo_segmento['n_clientes'].sum() * 100).round(1)
+    resumo_segmento['%_gasto'] = (resumo_segmento['total_gasto'] / resumo_segmento['total_gasto'].sum() * 100).round(1)
+
+    ordem = ['Bronze', 'Prata', 'Ouro']
+
+    print("\nDISTRIBUICAO POR SEGMENTO")
+    print(clientes['segmento'].value_counts().reindex(ordem))
+    print()
+    print(resumo_segmento.reindex(ordem))
+
+    return clientes
+
+segmentar_clientes(df)
