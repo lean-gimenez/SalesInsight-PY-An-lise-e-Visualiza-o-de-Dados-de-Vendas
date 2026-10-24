@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
 
 # DEFINIR NOMBES DE COLUNAS AO INICIO COM CONSTANTES. 
 # Colunas originais do dataset
@@ -194,31 +195,32 @@ def calcular_metricas(df):
     receita_categorias = df.groupby(COL_CATEGORIA).agg(
         receita_total=(COL_RECEITA, 'sum')
     ).reset_index()
-    top_categorias = receita_categorias.sort_values(by=COL_RECEITA, ascending=False).head()
+    top_categorias = receita_categorias.sort_values(by=COL_RECEITA, ascending=False).head(5)
 
     # Receita total e ticket médio por região.
     receita_regiao = df.groupby(COL_REGIAO).agg(
         receita_total=(COL_RECEITA, 'sum'),
         ticket_medio=(COL_RECEITA, 'mean')
     ).reset_index()
+    receita_regiao['ticket_medio'] = receita_regiao['ticket_medio'].round(2)
 
     # Quantidade de vendas com DESCONTO por METODO DE PAGO
-    com_desconto = df[df[COL_DESCONTO] > 0]
-
+    com_desconto = df[df[COL_DESCONTO] > 0].copy()
     com_desconto[COL_FAIXA_DESCONTO] = df[COL_DESCONTO].apply(
         lambda x: '<10%' if x < 0.1 else ('10-20%' if x <= 0.2 else '>20%')
     )
 
     ordem_descontos = ['<10%', '10-20%', '>20%']
 
+    com_desconto[COL_FAIXA_DESCONTO] = pd.Categorical(
+        com_desconto[COL_FAIXA_DESCONTO], categories=ordem_descontos, ordered=True
+    )
+
     tabela_descontos = (
         com_desconto
-        .groupby([COL_PAGAMENTO, COL_FAIXA_DESCONTO])
+        .groupby([COL_PAGAMENTO, COL_FAIXA_DESCONTO], observed=True)
         .size()
         .reset_index(name='quantidade_vendas')
-        .sort_values(by=[COL_PAGAMENTO, COL_FAIXA_DESCONTO],
-                     key=lambda col: col.map(lambda x: ordem_descontos.index(x) if x in ordem_descontos else x)
-                    )
     )
 
     metricas = {
@@ -285,3 +287,160 @@ def segmentar_clientes(df):
     return clientes
 
 segmentar_clientes(df)
+
+
+# ==============================
+# === VISUALIZAÇÃO DOS DADOS ===
+# ==============================
+
+# Criação de
+# Grafico de LINHAS: receita_por_mes
+# Grafico de BARRAS: top_categorias
+# Grafico de DISPERÇÃO: quantidade_vs_receita
+# Grafico 2x2 painel_resumo com graficos anteriores + receita por regiao (G de BARRAS)
+
+# configuracao visual global
+sns.set_theme(style="whitegrid", palette="deep")
+plt.rcParams["figure.figsize"] = (12, 6)
+plt.rcParams["axes.titlesize"] = 14
+plt.rcParams["axes.labelsize"] = 11
+plt.rcParams["legend.fontsize"] = 11
+PALETA = ["#0a3f8a", "#95101b", "#0b8741", "#bbb807"]
+
+
+# --- Gaurdar figura
+def guardar_figura(fig, nome_arquivo, mostrar=False):
+    """Ajusta o layout, salva a figura em PNG e a fecha."""
+
+    # Criar pasta para guardar os graficos
+    pasta_graficos = "outputs/graficos"
+    os.makedirs(pasta_graficos, exist_ok=True)
+    
+    # ajustar tamanho da figura
+    plt.tight_layout()
+    
+    # guardar grafico 
+    plt.savefig(os.path.join(pasta_graficos, nome_arquivo), dpi=150)
+
+    # mostrar grafico depois de salvar e antes de fechar
+    if mostrar:
+        plt.show()
+    
+    # fechar grafico
+    plt.close(fig)
+
+
+# --- Grafico de LINHAS: receita_por_mes
+def grafico_receita_por_mes(ax, metricas):
+    """Desenha a linha de receita por mes no eixo recebido."""
+
+    # Trazer tabela de receita por mes
+    por_mes = metricas['por_mes']
+
+    # Grafico de linhas
+    ax.plot(por_mes[COL_MES], por_mes[COL_RECEITA], marker="o", linewidth=2)
+    ax.set_title("Receita Total por Mês")
+    ax.set_xlabel("Mês")
+    ax.set_ylabel("Receita Total ($)")
+
+
+# --- Grafico de BARRAS: top_categorias
+def grafico_top_categorias(ax, metricas):
+    """Desenha as barras de receita por categoria no eixo recebido."""
+
+    # Trazer tabela de receita por mes
+    top_categorias = metricas['top_categorias']
+
+    # Grafico de barras
+    sns.barplot(
+        data=top_categorias, y=COL_CATEGORIA, x=COL_RECEITA,
+        hue=COL_CATEGORIA, legend=False, palette=PALETA, ax=ax
+        )
+    ax.set_title("Top Categorias")
+    ax.set_xlabel("Categorias")
+    ax.set_ylabel("Receita")
+
+
+# --- Grafico de DISPERÇÃO: quantidade_vs_receita
+def grafico_quantidade_vs_receita(ax, df):
+    """Desenha a dispersao quantidade x receita, colorida por categoria."""
+
+    # Grafico de dispercao
+    df = df.sample(800, random_state=42)
+    rng = np.random.default_rng(42) # Jitter para ver melhor a dispercao
+    x_jitter = df[COL_QUANTIDADE] + rng.uniform(-0.25, 0.25, len(df)) # maior largo das colunas
+
+    sns.scatterplot(
+        data=df, x=x_jitter, y=COL_RECEITA,
+        hue=COL_CATEGORIA, palette=PALETA, alpha=0.5, ax=ax
+        )
+    ax.set_title("Quantidade vs Receita")
+    ax.set_xlabel("Quantidade")
+    ax.set_ylabel("Receita Total")
+    ax.legend(title="Categoria")
+
+
+# --- Grafico de BARRAS: receita_por_regiao
+def grafico_receita_por_regiao(ax, metricas):
+    """Desenha as barras de receita por regiao no eixo recebido."""
+
+    regiao = metricas['por_regiao']
+    
+    # Grafico de barras
+    sns.barplot(
+        data=regiao, y=COL_REGIAO, x=COL_RECEITA,
+        hue=COL_REGIAO, legend=False, palette=PALETA, ax=ax
+        )
+    ax.set_title("Receita por região")
+    ax.set_xlabel("Receita Total")
+    ax.set_ylabel("Região")
+
+
+# Grafico 2x2 painel_resumo com graficos anteriores
+def grafico_painel_resumo(df, metricas, mostrar=False):
+    """Gera a figura 2x2 reutilizando as funcoes de desenho."""
+
+    fig, axes = plt.subplots(2, 2, figsize=(14, 9))
+    fig.subplots_adjust(hspace=0.4, wspace=0.3)
+    grafico_receita_por_mes(axes[0, 0], metricas) # linha
+    grafico_top_categorias(axes[0, 1], metricas) # barras
+    grafico_quantidade_vs_receita(axes[1, 0], df) # dispersao
+    grafico_receita_por_regiao(axes[1, 1], metricas) # receita por regiao
+
+    fig.suptitle("SalesInsight PY - Painel Resumo", fontsize=16)
+
+    nome_arquivo = "painel_resumo.png"
+    guardar_figura(fig, nome_arquivo, mostrar=mostrar)
+
+
+# --- Gerar e guardar os graficos
+def gerar_graficos(df, metricas):
+    """Gera e salva as 4 figuras"""
+    
+    # Linhas: receita por mes
+    fig, ax = plt.subplots()
+    grafico_receita_por_mes(ax, metricas)
+    guardar_figura(fig, "receita_por_mes.png")
+
+    # Barras: top categorias
+    fig, ax = plt.subplots()
+    grafico_top_categorias(ax, metricas)
+    guardar_figura(fig, "top_categorias.png")
+
+    # Dispercao: quantidade vs receita
+    fig, ax = plt.subplots()
+    grafico_quantidade_vs_receita(ax, df)
+    guardar_figura(fig, "quantidade_vs_receita.png")
+
+    # Barras: receita por regiao
+    fig, ax = plt.subplots()
+    grafico_receita_por_regiao(ax, metricas)
+    guardar_figura(fig, "receita_por_regiao.png")
+
+    # Painel resumo
+    respuesta = input("Deseja ver o painel resumo com os graficos? S/N: ")
+    mostrar = respuesta.strip().upper() == "S"
+    grafico_painel_resumo(df, metricas, mostrar=mostrar)
+
+
+gerar_graficos(df, metricas)
