@@ -29,22 +29,26 @@ COL_FAIXA = 'faixa_receita_item'
 COL_SEGMENTO = 'segmento_cliente'
 COL_FAIXA_DESCONTO = 'faixa_desconto'
 
+# Outros dados constantes
+LIMITE_PRATA = 5000
+LIMITE_OURO = 15000
+
 
 # ===========================================
 # === CARREGAR DATASET E TRANSFORMAR A DF ===
 # ===========================================
 
-def carregar_dados():
-    dataset = "vendas.csv"
+nome_dataset = "vendas.csv"
+
+def carregar_dados(nome_dataset):
     # Transformar dataset a dataframe
-    df_original = pd.read_csv(dataset)
-    return df_original
+    df_bruto = pd.read_csv(nome_dataset)
+    return df_bruto
 
-df_original = carregar_dados()
 
-# =================================
-# === INSPECAO INICIAL DE DADOS ===
-# =================================
+# ===========================================
+# ======== INSPECAO INICIAL DE DADOS ========
+# ===========================================
 
 def inspecionar_dados(df):
     """Exibe as informacoes estruturais do DataFrame."""
@@ -56,11 +60,10 @@ def inspecionar_dados(df):
     print(f"\nValores nulos por coluna:\n{df.isnull().sum()}")
     print(f"\nPrimeiros registros:\n{df.head()}")
 
-inspecionar_dados(df_original)
 
-# ========================
-# === LIMPEZA DE DADOS ===
-# ========================
+# ===========================================
+# ============ LIMPEZA DE DADOS =============
+# ===========================================
 
 def tratar_dados(df):
     """
@@ -69,7 +72,7 @@ def tratar_dados(df):
     com as contagens de registros iniciais, convertidas e finais.
     """
 
-    # Para nao modificar o df original
+    # Para nao modificar o df bruto
     df = df.copy()
 
     print("\n=== LIMPEZA DE DADOS ===")
@@ -111,11 +114,10 @@ def tratar_dados(df):
     df_limpo = df
     return df_limpo, relatorio
 
-df_limpo, relatorio = tratar_dados(df_original)
 
-# =========================
-# === COLUNAS DERIVADAS ===
-# =========================
+# ===========================================
+# ============ COLUNAS DERIVADAS ============
+# ===========================================
 
 def criar_colunas(df): 
     # Copiar o df_limpo num df novo
@@ -170,11 +172,10 @@ def criar_colunas(df):
 
     return df
 
-df = criar_colunas(df_limpo)
 
-# ======================
-# === METRICAS DO DF ===
-# ======================
+# ===========================================
+# ============= METRICAS DO DF ==============
+# ===========================================
 
 # NOTA: O dataset nao contem info dos ITENS PRODUTOS, apenas as CATEGORIAS.
 #       Entao vou fazer outro tipo de metrica e correlacao de variaveis.
@@ -233,7 +234,6 @@ def calcular_metricas(df):
 
     return metricas
 
-metricas = calcular_metricas(df)
 
 def resumo(dict):
     print()
@@ -241,11 +241,10 @@ def resumo(dict):
         print(f"\n=== {titulo} ===")
         print(tabela.to_string(index=False))
 
-resumo = resumo(metricas)
 
-# ===============================
-# === SEGMENTACAO DE CLIENTES ===
-# ===============================
+# ===========================================
+# ========= SEGMENTACAO DE CLIENTES =========
+# ===========================================
 
 def segmentar_clientes(df):
     """
@@ -263,14 +262,20 @@ def segmentar_clientes(df):
     )
 
     clientes['segmento'] = clientes['total_gasto'].apply(
-        lambda x: 'Bronze' if x < 5000 else ('Prata' if x <= 15000 else 'Ouro')
+        lambda x: 'Bronze' if x < LIMITE_PRATA else ('Prata' if x <= LIMITE_OURO else 'Ouro')
     )
 
+    return clientes
+
+def exibir_segmentacao(clientes):
+    """Exibe top 10 clientes e distribuicao por segmento"""
+
+    # Top 10 clientes
     print("\nTOP 10 CLIENTES")
     top10_clientes = clientes.sort_values(by='total_gasto', ascending=False).head(10)
     print(top10_clientes.to_string(index=False))
 
-    # DISTRIBUICAO POR SEGMENTO
+    # Distribuicao por segmento
     resumo_segmento = clientes.groupby('segmento').agg(
         n_clientes=('cliente', 'count'),
         total_gasto=('total_gasto', 'sum'),
@@ -285,14 +290,10 @@ def segmentar_clientes(df):
     print()
     print(resumo_segmento.reindex(ordem))
 
-    return clientes
 
-clientes = segmentar_clientes(df)
-
-
-# ==============================
-# === VISUALIZAÇÃO DOS DADOS ===
-# ==============================
+# ===========================================
+# ========= VISUALIZAÇÃO DOS DADOS ==========
+# ===========================================
 
 # Criação de
 # Grafico de LINHAS: receita_por_mes
@@ -444,20 +445,20 @@ def gerar_graficos(df, metricas):
     grafico_painel_resumo(df, metricas, mostrar=mostrar)
 
 
-gerar_graficos(df, metricas)
-
-
-# ================================
-# === EXPORTAÇÃO DE RESULTADOS ===
-# ================================
+# ===========================================
+# ======== EXPORTAÇÃO DE RESULTADOS =========
+# ===========================================
 
 # --- Definir estatisticas
-estatisticas = {
-    'total_faturamento': df[COL_RECEITA].sum(),
-    'total_vendas': len(df),
-    'ticket_medio': df[COL_RECEITA].mean(),
-    'desconto_medio': df[COL_DESCONTO].mean(),
-}
+def calcular_estatisticas(df):
+    """Calcula estatisticas gerais do df e retorna um dict"""
+    return {
+        'total_faturamento': df[COL_RECEITA].sum(),
+        'total_vendas': len(df),
+        'ticket_medio': df[COL_RECEITA].mean(),
+        'desconto_medio': df[COL_DESCONTO].mean(),
+        }
+
 
 def exportar_resultados(metricas, clientes, estatisticas):
     """Exporta os resultados do projeto em CSV e JSON."""
@@ -488,7 +489,82 @@ def exportar_resultados(metricas, clientes, estatisticas):
     # Confirmar guardado e mostrar JSON
     print(f"JSON gravado e lido: {conferencia}")
 
-resultados_estatisticos_exportados = exportar_resultados(metricas, clientes, estatisticas)
-print(resultados_estatisticos_exportados)
 
-print(df[COL_CLIENTE].nunique())
+# ===========================================
+# ============ CLASSE ANALISADOR ============
+# ===========================================
+
+# --- Definir classe analisador
+class Analisador:
+    """Executa todas as funcoes para analisar as vendas"""
+
+    def __init__(self):
+        self.df_bruto = None # é df
+        self.df_limpo = None # é df
+        self.df = None # é df
+        self.relatorio = {} # é dict
+        self.metricas = {} # é dict
+        self.clientes = None # é df
+        self.estatisticas = {} # é dict
+
+
+    def carregar(self, dataset):
+        """Carrega os dados do dataset e converte a df"""
+        self.df_bruto = carregar_dados(dataset)
+
+
+    def inspecionar(self):
+        """Exibe a inspecao inicial do df bruto"""
+        inspecionar_dados(self.df_bruto)
+
+
+    def transformar(self):
+        """Limpa os dados e cria as colunas derivadas"""
+        self.df_limpo, self.relatorio = tratar_dados(self.df_bruto)
+
+        print("\n=== RELATÓRIO DE LIMPEZA ===")
+        for key, value in self.relatorio.items():
+            print(f"{key}: {value}")
+
+        self.df = criar_colunas(self.df_limpo)
+
+
+    def analisar(self):
+        """Calcula metricas, segmentacao de clientes e estatisticas"""
+        self.metricas = calcular_metricas(self.df)
+        self.clientes = segmentar_clientes(self.df)
+        self.estatisticas = calcular_estatisticas(self.df)
+
+    
+    def resumir(self):
+        """Exibe as metricas e a segmentacao de clientes"""
+        print("=== RESUMO DE METRICAS ===")
+        resumo(self.metricas)
+        exibir_segmentacao(self.clientes)
+
+
+    def visualizar(self):
+        """Gera, guarda e mostra os graficos"""
+        gerar_graficos(self.df, self.metricas)
+    
+
+    def exportar(self):
+        """Exporta resultados em formato csv e jason e mostra o json na consola"""
+        exportar_resultados(self.metricas, self.clientes, self.estatisticas)
+
+
+# ===========================================
+# == FUNÇAO MAIN QUE REUNE TODAS AS FUNÇÕES =
+# ===========================================
+
+def main():
+    analisador = Analisador()
+    analisador.carregar(nome_dataset)
+    analisador.inspecionar()
+    analisador.transformar()
+    analisador.analisar()
+    analisador.resumir()
+    analisador.visualizar()
+    analisador.exportar()
+
+main()
