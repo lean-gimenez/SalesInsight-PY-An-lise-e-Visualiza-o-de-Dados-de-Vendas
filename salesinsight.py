@@ -546,6 +546,7 @@ class Analisador:
     def visualizar(self):
         """Gera, guarda e mostra os graficos"""
         gerar_graficos(self.df, self.metricas)
+        print(self.df.columns)
     
 
     def exportar(self):
@@ -568,3 +569,4 @@ def main():
     analisador.exportar()
 
 main()
+
