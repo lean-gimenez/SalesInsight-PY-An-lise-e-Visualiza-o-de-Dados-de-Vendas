@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
+import json
 
 # DEFINIR NOMBES DE COLUNAS AO INICIO COM CONSTANTES. 
 # Colunas originais do dataset
@@ -286,7 +287,7 @@ def segmentar_clientes(df):
 
     return clientes
 
-segmentar_clientes(df)
+clientes = segmentar_clientes(df)
 
 
 # ==============================
@@ -444,3 +445,50 @@ def gerar_graficos(df, metricas):
 
 
 gerar_graficos(df, metricas)
+
+
+# ================================
+# === EXPORTAÇÃO DE RESULTADOS ===
+# ================================
+
+# --- Definir estatisticas
+estatisticas = {
+    'total_faturamento': df[COL_RECEITA].sum(),
+    'total_vendas': len(df),
+    'ticket_medio': df[COL_RECEITA].mean(),
+    'desconto_medio': df[COL_DESCONTO].mean(),
+}
+
+def exportar_resultados(metricas, clientes, estatisticas):
+    """Exporta os resultados do projeto em CSV e JSON."""
+
+    # Criar pasta outputs
+    os.makedirs("outputs", exist_ok=True)
+
+    # Guardar df "por_mes" do dict metricas como csv
+    metricas["por_mes"].to_csv("outputs/metricas_por_mes.csv",
+                               index=False, encoding="utf-8-sig")
+
+    # Guardar df clientes (segmentados) como csv
+    clientes.to_csv("outputs/segmentacao_clientes.csv",
+                    index=False, encoding="utf-8-sig")
+
+    # Modificar dados para ser lidos por json (dictionary comprehension)
+    serializavel = {key: round(float(value), 2)
+                    for key, value in estatisticas.items()}
+    # Rota para guardar arquivo json
+    caminho = "outputs/estatisticas_gerais.json"
+    # Criar/guardar json (write)
+    with open(caminho, "w", encoding="utf-8") as f:
+        json.dump(serializavel, f, indent=4, ensure_ascii=False)
+
+    # Leitura de volta para confirmar a escrita (read)
+    with open(caminho, "r", encoding="utf-8") as f:
+        conferencia = json.load(f) # Leitura fechada, mas dados guardados na variável conferencia
+    # Confirmar guardado e mostrar JSON
+    print(f"JSON gravado e lido: {conferencia}")
+
+resultados_estatisticos_exportados = exportar_resultados(metricas, clientes, estatisticas)
+print(resultados_estatisticos_exportados)
+
+print(df[COL_CLIENTE].nunique())
