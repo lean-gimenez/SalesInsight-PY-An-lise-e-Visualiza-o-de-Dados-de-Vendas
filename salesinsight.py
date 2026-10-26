@@ -80,12 +80,12 @@ def tratar_dados(df):
     linhas_inicio = len(df)
 
     # LIMPEZA
-    # 1. remover espacos extras nas colunas de texto e converter possiveis valores vazios ("") em NaN
+    # 1. Remover espacos extras nas colunas de texto e converter possiveis valores vazios ("") em NaN
     for col in df.select_dtypes(include=['object']).columns:
         df[col] = df[col].str.strip()
     df = df.replace("", np.nan)
 
-    # 2. converter DATAs e descartar invalidas
+    # 2. Converter datas e descartar invalidas
     df[COL_DATA] = pd.to_datetime(df[COL_DATA], format='%m/%d/%Y', errors='coerce')
     # Ver as datas convertidas antes de fazer metodo dropna
     convertidas = df[COL_DATA].notna().sum()
@@ -124,7 +124,8 @@ def criar_colunas(df):
 
     # Criacao de colunas derivadas
     # Receita total
-    df[COL_RECEITA] = df[COL_QUANTIDADE] * df[COL_PRECO_UNIDADE]
+    
+    df[COL_RECEITA] = df[COL_QUANTIDADE] * df[COL_PRECO_UNIDADE] 
 
     # Mes
     df[COL_MES] = df[COL_DATA].dt.month
@@ -249,6 +250,16 @@ def resumo(dict):
 # ========= SEGMENTACAO DE CLIENTES =========
 # ===========================================
 
+def processar_coluna(df, coluna, funcao_transformadora, nova_coluna=None):
+   """Processa coluna do df e cria uma nova"""
+
+   df = df.copy()
+   nova_coluna = nova_coluna or f"{coluna}_transformada"
+   df[nova_coluna] = df[coluna].apply(funcao_transformadora)
+
+   return df
+
+
 def segmentar_clientes(df):
     """
     Agrupa por cliente, soma a receita 
@@ -264,8 +275,10 @@ def segmentar_clientes(df):
         .rename(columns={COL_CLIENTE:'cliente', COL_RECEITA:'total_gasto'})
     )
 
-    clientes['segmento'] = clientes['total_gasto'].apply(
-        lambda x: 'Bronze' if x < LIMITE_PRATA else ('Prata' if x <= LIMITE_OURO else 'Ouro')
+    clientes = processar_coluna(
+        clientes, 'total_gasto',
+        lambda x: 'Bronze' if x < LIMITE_PRATA else ('Prata' if x <= LIMITE_OURO else 'Ouro'),
+        nova_coluna='segmento'
     )
 
     return clientes
