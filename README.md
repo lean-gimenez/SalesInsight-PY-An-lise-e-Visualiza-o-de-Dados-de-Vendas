@@ -56,8 +56,13 @@ Colunas criadas
  
 ### Google Colab
 1. Faca upload de salesinsight.py e de vendas.csv para o Colab.
-2. Execute: !python salesinsight.py
-3. Ou cole o conteudo em celulas de um notebook .ipynb
+    a. Acesse o Google Colab e crie um novo notebook.
+    b. No painel esquerdo, faça o upload dos arquivos 'salesinsight.py' e 'vendas.csv'.
+2. Execute: !python salesinsight.py.
+3. Ou cole o conteudo em celulas de um notebook .ipynb.
+4. Graficos:
+    a. Revise a pasta outputs/graficos para ver os graficos guardados. Especialmente, 'painel_resumo.png'.
+    b. Pode encontrar também os arquivos csv e json sobre estatisticas.
  
 ### Localmente com VS Code
 1. Instale o Python 3.10+ e o VS Code.
