@@ -26,7 +26,6 @@ COL_MES_NOME = 'mes_nome'
 COL_TRIMESTRE = 'trimestre'
 COL_ANO = 'ano'
 COL_FAIXA = 'faixa_receita_item'
-COL_SEGMENTO = 'segmento_cliente'
 COL_FAIXA_DESCONTO = 'faixa_desconto'
 
 # Outros dados constantes
@@ -169,6 +168,11 @@ def criar_colunas(df):
     print(f"\nDados unicos: trimestre\n{df[COL_TRIMESTRE].unique()}")
     print(f"\nDados unicos: faixa_receita_item\n{df[COL_FAIXA].value_counts()}")
     print(f"\nAmostra do DF\n{df[novas_colunas].head()}")
+    print()
+    print("=== NOVO DATAFRAME ===")
+    print(f"DF com {df.shape[0]} linhas e {df.shape[1]} colunas.")
+    print(f"Colunas: {list(df.columns)}")
+
 
     return df
 
@@ -546,7 +550,6 @@ class Analisador:
     def visualizar(self):
         """Gera, guarda e mostra os graficos"""
         gerar_graficos(self.df, self.metricas)
-        print(self.df.columns)
     
 
     def exportar(self):
@@ -568,5 +571,6 @@ def main():
     analisador.visualizar()
     analisador.exportar()
 
-main()
 
+if __name__ == "__main__":
+    main()
