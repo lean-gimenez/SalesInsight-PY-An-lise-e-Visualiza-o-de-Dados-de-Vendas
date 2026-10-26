@@ -54,7 +54,7 @@ Colunas criadas
  
 ## Como executar
  
-### Google Colab (recomendado)
+### Google Colab
 1. Faca upload de salesinsight.py e de vendas.csv para o Colab.
 2. Execute: !python salesinsight.py
 3. Ou cole o conteudo em celulas de um notebook .ipynb

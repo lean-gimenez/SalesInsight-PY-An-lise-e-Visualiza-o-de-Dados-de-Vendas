@@ -81,7 +81,7 @@ def tratar_dados(df):
 
     # LIMPEZA
     # 1. remover espacos extras nas colunas de texto e converter possiveis valores vazios ("") em NaN
-    for col in df.select_dtypes(include=['object', 'str']).columns:
+    for col in df.select_dtypes(include=['object']).columns:
         df[col] = df[col].str.strip()
     df = df.replace("", np.nan)
 
