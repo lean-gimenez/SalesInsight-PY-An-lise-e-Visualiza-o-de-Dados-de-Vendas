@@ -173,7 +173,6 @@ def criar_colunas(df):
     print(f"DF com {df.shape[0]} linhas e {df.shape[1]} colunas.")
     print(f"Colunas: {list(df.columns)}")
 
-
     return df
 
 
