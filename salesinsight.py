@@ -125,7 +125,7 @@ def criar_colunas(df):
     # Criacao de colunas derivadas
     # Receita total
     
-    df[COL_RECEITA] = df[COL_QUANTIDADE] * df[COL_PRECO_UNIDADE] 
+    df[COL_RECEITA] = df[COL_QUANTIDADE] * df[COL_PRECO_UNIDADE] * (1 - df[COL_DESCONTO])
 
     # Mes
     df[COL_MES] = df[COL_DATA].dt.month
