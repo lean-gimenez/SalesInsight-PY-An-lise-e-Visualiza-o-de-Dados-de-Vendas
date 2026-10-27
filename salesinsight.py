@@ -81,7 +81,7 @@ def tratar_dados(df):
 
     # LIMPEZA
     # 1. Remover espacos extras nas colunas de texto e converter possiveis valores vazios ("") em NaN
-    for col in df.select_dtypes(include=['object']).columns:
+    for col in df.select_dtypes(include=['object', 'string']).columns:
         df[col] = df[col].str.strip()
     df = df.replace("", np.nan)
 
@@ -124,7 +124,6 @@ def criar_colunas(df):
 
     # Criacao de colunas derivadas
     # Receita total
-    
     df[COL_RECEITA] = df[COL_QUANTIDADE] * df[COL_PRECO_UNIDADE] * (1 - df[COL_DESCONTO])
 
     # Mes
@@ -171,7 +170,9 @@ def criar_colunas(df):
     print(f"\nAmostra do DF\n{df[novas_colunas].head()}")
     print()
     print("=== NOVO DATAFRAME ===")
+    print()
     print(f"DF com {df.shape[0]} linhas e {df.shape[1]} colunas.")
+    print()
     print(f"Colunas: {list(df.columns)}")
 
     return df
@@ -240,7 +241,6 @@ def calcular_metricas(df):
 
 
 def resumo(dict):
-    print()
     for titulo, tabela in dict.items():
         print(f"\n=== {titulo} ===")
         print(tabela.to_string(index=False))
@@ -294,10 +294,10 @@ def exibir_segmentacao(clientes):
     # Distribuicao por segmento
     resumo_segmento = clientes.groupby('segmento').agg(
         n_clientes=('cliente', 'count'),
-        total_gasto=('total_gasto', 'sum'),
+        total_gasto=('total_gasto', lambda x: x.sum().round(2)),
     )
-    resumo_segmento['%_clientes'] = (resumo_segmento['n_clientes'] / resumo_segmento['n_clientes'].sum() * 100).round(1)
-    resumo_segmento['%_gasto'] = (resumo_segmento['total_gasto'] / resumo_segmento['total_gasto'].sum() * 100).round(1)
+    resumo_segmento['%_clientes'] = (resumo_segmento['n_clientes'] / resumo_segmento['n_clientes'].sum() * 100).round(2)
+    resumo_segmento['%_gasto'] = (resumo_segmento['total_gasto'] / resumo_segmento['total_gasto'].sum() * 100).round(2)
 
     ordem = ['Bronze', 'Prata', 'Ouro']
 
@@ -456,7 +456,7 @@ def gerar_graficos(df, metricas):
     guardar_figura(fig, "receita_por_regiao.png")
 
     # Painel resumo
-    respuesta = input("Deseja ver o painel resumo com os graficos? S/N: ")
+    respuesta = input("\nDeseja ver o painel resumo com os graficos? S/N: ")
     mostrar = respuesta.strip().upper() == "S"
     grafico_painel_resumo(df, metricas, mostrar=mostrar)
 
@@ -503,7 +503,7 @@ def exportar_resultados(metricas, clientes, estatisticas):
     with open(caminho, "r", encoding="utf-8") as f:
         conferencia = json.load(f) # Leitura fechada, mas dados guardados na variável conferencia
     # Confirmar guardado e mostrar JSON
-    print(f"JSON gravado e lido: {conferencia}")
+    print(f"\nJSON gravado e lido: \n{conferencia}")
 
 
 # ===========================================
@@ -554,7 +554,7 @@ class Analisador:
     
     def resumir(self):
         """Exibe as metricas e a segmentacao de clientes"""
-        print("=== RESUMO DE METRICAS ===")
+        print("\n=== RESUMO DE METRICAS ===")
         resumo(self.metricas)
         exibir_segmentacao(self.clientes)
 
