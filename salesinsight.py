@@ -77,7 +77,7 @@ def tratar_dados(df):
 
     # LIMPEZA
     # 1. Remover espacos extras nas colunas de texto e converter possiveis valores vazios ("") em NaN
-    for col in df.select_dtypes(include=['object']).columns:
+    for col in df.select_dtypes(include=['object', 'string']).columns:
         df[col] = df[col].str.strip()
     df = df.replace("", np.nan)
 
@@ -122,6 +122,7 @@ def criar_colunas(df):
     # Receita total
     
     df[COL_RECEITA] = df[COL_QUANTIDADE] * df[COL_PRECO_UNIDADE] * (1 - df[COL_DESCONTO])
+    df[COL_RECEITA] = df[COL_RECEITA].round(2)
 
     # Mes
     df[COL_MES] = df[COL_DATA].dt.month
@@ -167,6 +168,7 @@ def criar_colunas(df):
     print(f"\nAmostra do DF\n{df[novas_colunas].head()}")
     print()
     print("=== NOVO DATAFRAME ===")
+    print()
     print(f"DF com {df.shape[0]} linhas e {df.shape[1]} colunas.")
     print(f"Colunas: {list(df.columns)}")
 
@@ -267,6 +269,7 @@ def segmentar_clientes(df):
     clientes = (
         df.groupby(COL_CLIENTE)[COL_RECEITA]
         .sum()
+        .round(2)
         .reset_index()
         .rename(columns={COL_CLIENTE:'cliente', COL_RECEITA:'total_gasto'})
     )
@@ -294,7 +297,7 @@ def exibir_segmentacao(clientes):
     # Distribuicao por segmento
     resumo_segmento = clientes.groupby('segmento').agg(
         n_clientes=('cliente', 'count'),
-        total_gasto=('total_gasto', lambda x: x.sum().round(2)),
+        total_gasto=('total_gasto', 'sum'),
     )
     resumo_segmento['%_clientes'] = (resumo_segmento['n_clientes'] / resumo_segmento['n_clientes'].sum() * 100).round(1)
     resumo_segmento['%_gasto'] = (resumo_segmento['total_gasto'] / resumo_segmento['total_gasto'].sum() * 100).round(1)
@@ -517,52 +520,6 @@ def grafico_painel_resumo_extra(df, mostrar=False):
     guardar_figura(fig, nome_arquivo, mostrar=mostrar)
 
 
-# Grafico de LINHAS: tendencia_projecao
-"""def tendencia_projecao(ax, df):
-    Graficar a evolucao mensal da receita junto com a estimacao da media para os próximos meses.
-    df = df.copy()
-    df_trimestre = df.groupby([COL_ANO, COL_TRIMESTRE])[COL_RECEITA].sum().reset_index()
-    
-    # Fazer coluna periodo. Os dados ficam = 2024-Q1
-    df_trimestre['periodo'] = df_trimestre[COL_ANO].astype(str) + '-' + df_trimestre[COL_TRIMESTRE].astype(str)
-    df_trimestre['periodo'] = df_trimestre['periodo'].astype(str)
-
-    # Criar coluna milhares para usar numeros mais pequenos no grafico
-    df_trimestre['receita_milhares'] = (df_trimestre[COL_RECEITA] / 1000).round(2)
-
-    CORTE = '2025-Q4'
-
-    # df com datas até corte
-    df_historico = df_trimestre[df_trimestre['periodo'] <= CORTE]
-    df_historico['tipo'] = 'Histórico'
-
-    # df com datas depois do corte
-    df_futuro = df_trimestre[df_trimestre['periodo'] > CORTE]
-    df_futuro['tipo'] = 'Futuro Real'
-
-    # df projecao com ticket promedio dos ultimos 4 trimestres
-    media_4_trimestres = df_historico['receita_milhares'].tail(4).mean()
-    df_projecao = df_futuro.copy()
-    df_projecao['receita_milhares'] = media_4_trimestres
-    df_projecao['tipo'] = 'Projeção'
-
-    # Concatenar dfs em um df
-    df_completo = pd.concat([df_historico, df_futuro, df_projecao], ignore_index=True)
-
-    sns.lineplot(
-        data=df_completo, x='periodo', y='receita_milhares',
-        hue='tipo', style='tipo', palette=PALETA,
-        markers=True, dashes={'Histórico':'', 'Futuro Real':'', 'Projeção': '--'},
-        ax=ax
-    )
-
-    ax.set_title("Evolução trimestral da receita")
-    ax.set_xlabel("Periodo (Ano-Trimestre)")
-    ax.set_ylabel("Receita (em milhares)")
-    ax.tick_params(axis='x', rotation=45)
-
-"""
-
 # --- Gerar e guardar os graficos
 def gerar_graficos(df, metricas):
     """Gera e salva as figuras"""
@@ -611,11 +568,6 @@ def gerar_graficos(df, metricas):
     fig, ax = plt.subplots()
     grafico_vendas_por_faixa_preco(ax, df)
     guardar_figura(fig, "vendas_por_faixa_preco")
-
-    """# Linhas: tendencia_projecao
-    fig, ax = plt.subplots()
-    tendencia_projecao(ax, df)
-    guardar_figura(fig, "tendencia_projecao")"""
 
     # painel_resumo_extra
     respuesta = input("Deseja ver mais graficos? S/N: ")
@@ -703,6 +655,7 @@ class Analisador:
         self.df_limpo, self.relatorio = tratar_dados(self.df_bruto)
 
         print("\n=== RELATÓRIO DE LIMPEZA ===")
+        print()
         for key, value in self.relatorio.items():
             print(f"{key}: {value}")
 
@@ -718,6 +671,7 @@ class Analisador:
     
     def resumir(self):
         """Exibe as metricas e a segmentacao de clientes"""
+        print()
         print("=== RESUMO DE METRICAS ===")
         resumo(self.metricas)
         exibir_segmentacao(self.clientes)
