@@ -670,12 +670,7 @@ class Analisador:
     
     def resumir(self):
         """Exibe as metricas e a segmentacao de clientes"""
-<<<<<<< HEAD
         print("\n=== RESUMO DE METRICAS ===")
-=======
-        print()
-        print("=== RESUMO DE METRICAS ===")
->>>>>>> develop
         resumo(self.metricas)
         exibir_segmentacao(self.clientes)
 
