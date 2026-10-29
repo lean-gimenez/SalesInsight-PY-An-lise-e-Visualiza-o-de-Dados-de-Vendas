@@ -28,10 +28,6 @@ COL_ANO = 'ano'
 COL_FAIXA = 'faixa_receita_item'
 COL_FAIXA_DESCONTO = 'faixa_desconto'
 
-# Outros dados constantes
-LIMITE_PRATA = 5000
-LIMITE_OURO = 15000
-
 
 # ===========================================
 # === CARREGAR DATASET E TRANSFORMAR A DF ===
@@ -275,9 +271,13 @@ def segmentar_clientes(df):
         .rename(columns={COL_CLIENTE:'cliente', COL_RECEITA:'total_gasto'})
     )
 
+    # Quartis 1 e 3 da coluna total_gasto para calcular segmentos
+    q1 = clientes['total_gasto'].quantile(0.25)
+    q3 = clientes['total_gasto'].quantile(0.75)
+
     clientes = processar_coluna(
         clientes, 'total_gasto',
-        lambda x: 'Bronze' if x < LIMITE_PRATA else ('Prata' if x <= LIMITE_OURO else 'Ouro'),
+        lambda x: 'Bronze' if x < q1 else ('Prata' if x <= q3 else 'Ouro'),
         nova_coluna='segmento'
     )
 
@@ -294,7 +294,7 @@ def exibir_segmentacao(clientes):
     # Distribuicao por segmento
     resumo_segmento = clientes.groupby('segmento').agg(
         n_clientes=('cliente', 'count'),
-        total_gasto=('total_gasto', 'sum'),
+        total_gasto=('total_gasto', lambda x: x.sum().round(2)),
     )
     resumo_segmento['%_clientes'] = (resumo_segmento['n_clientes'] / resumo_segmento['n_clientes'].sum() * 100).round(1)
     resumo_segmento['%_gasto'] = (resumo_segmento['total_gasto'] / resumo_segmento['total_gasto'].sum() * 100).round(1)
@@ -316,6 +316,12 @@ def exibir_segmentacao(clientes):
 # Grafico de BARRAS: top_categorias
 # Grafico de DISPERÇÃO: quantidade_vs_receita
 # Grafico 2x2 painel_resumo com graficos anteriores + receita por regiao (G de BARRAS)
+# EXTRAS
+# Grafico de BARRAS: receita_por_trimestre """Mostrar a evolucao da receita acumulada por trimestre (Q1 a Q4) para ver estacionalidade."""
+# Grafico HEATMAP: matriz_correlacao_trimestral """Visualizar estacionalidade comparando anos contra trimestres para identificar patrones de concentración de ventas."""
+# Grafico de PIZZA: distribuicao_segmentos """Mostrar a participacao porcentual que tem cada segmento de clientes."""
+# Grafico HISTOGRAMA: vendas_por_faixa_preco """Mostrar volumen de vendas de cada rango (BAIXO, MEDIO, ALTO)."
+# Grafico de LINHAS: tendencia_projecao """Graficar a evolucao mensal da receita junto com a estimacao da media para os próximos meses."
 
 # configuracao visual global
 sns.set_theme(style="whitegrid", palette="deep")
@@ -431,9 +437,135 @@ def grafico_painel_resumo(df, metricas, mostrar=False):
     guardar_figura(fig, nome_arquivo, mostrar=mostrar)
 
 
+# --- EXTRAS
+# Grafico de BARRAS: receita_por_trimestre 
+def grafico_receita_por_trimestre(ax, df):
+    """Mostrar a evolucao da receita acumulada por trimestre (Q1 a Q4) para ver estacionalidade."""
+    df = df.copy()
+
+    # Trazer tabela de receita por trimestre
+    receita_trimestre = df.groupby(COL_TRIMESTRE)[COL_RECEITA].sum().reset_index()
+
+    # Grafico de barras
+    sns.barplot(
+        data=receita_trimestre, y=COL_RECEITA, x=COL_TRIMESTRE,
+        legend=False, ax=ax
+        )
+    ax.set_title("Estacionalidade: Receita por trimestre")
+    ax.set_xlabel("Trimestre")
+    ax.set_ylabel("Receita")
+    
+
+# Grafico HEATMAP: matriz_correlacao_trimestral
+def grafico_matriz_correlacao_trimestral(ax, df):
+    """Visualizar estacionalidade comparando anos contra trimestres para identificar patrones de concentración de ventas."""
+    df = df.copy()
+
+    df_pivot = df.groupby([COL_ANO, COL_TRIMESTRE])[COL_RECEITA].sum().unstack(level=COL_TRIMESTRE)
+    sns.heatmap(data=df_pivot, cmap='YlGnBu', annot=True, 
+                linecolor='white', fmt=',.0f', annot_kws={'size': 7},
+                cbar_kws={'label': 'Receita Total'}, ax=ax)
+    ax.set_title('Correlação de Receita por Ano e Trimestre')
+    ax.set_xlabel('Trimestre')
+    ax.set_ylabel('Ano')
+
+
+# Grafico de PIZZA: distribuicao_segmentos
+def grafico_distribuicao_segmentos(ax, df):
+    """Mostrar a participacao porcentual que tem cada segmento de clientes."""
+    df = df.copy()
+
+    df_clientes = segmentar_clientes(df)
+    segmentos = df_clientes['segmento'].value_counts()
+    ax.pie(x=segmentos, labels=segmentos.index, colors=PALETA[0:3], autopct='%1.1f%%')
+    ax.set_title('Distribuição de Clientes por Segmento')
+
+
+# Grafico HISTOGRAMA: vendas_por_faixa_preco
+def grafico_vendas_por_faixa_preco(ax, df):
+    """Mostrar volumen de vendas de cada rango (BAIXO, MEDIO, ALTO)."""
+    df = df.copy()
+
+    n_anos = df[COL_ANO].nunique()
+
+    sns.histplot(
+        data=df, x=COL_ANO, hue=COL_FAIXA,
+        weights=COL_RECEITA, multiple='stack',
+        palette=PALETA[0:3], shrink=0.9, bins=n_anos, ax=ax
+    )
+    ax.set_title('Receita por Ano e Faixa de Preço')
+    ax.set_xlabel('Ano')
+    ax.set_ylabel('Receita Total')
+    ax.set_xticks(sorted(df[COL_ANO].unique()))
+    ax.tick_params(axis='x', rotation=45)
+
+
+# Grafico 2x2 painel_resumo_extra com graficos anteriores
+def grafico_painel_resumo_extra(df, mostrar=False):
+    """Gera a figura 2x2 reutilizando as funcoes de desenho."""
+
+    fig, axes = plt.subplots(2, 2, figsize=(14, 9))
+    fig.subplots_adjust(hspace=0.4, wspace=0.3)
+    grafico_receita_por_trimestre(axes[0, 0], df) # linha
+    grafico_matriz_correlacao_trimestral(axes[0, 1], df) # barras
+    grafico_distribuicao_segmentos(axes[1, 0], df) # dispersao
+    grafico_vendas_por_faixa_preco(axes[1, 1], df) # receita por regiao
+
+    fig.suptitle("SalesInsight PY - Painel Resumo Extra", fontsize=16)
+
+    nome_arquivo = "painel_resumo_extra.png"
+    guardar_figura(fig, nome_arquivo, mostrar=mostrar)
+
+
+# Grafico de LINHAS: tendencia_projecao
+"""def tendencia_projecao(ax, df):
+    Graficar a evolucao mensal da receita junto com a estimacao da media para os próximos meses.
+    df = df.copy()
+    df_trimestre = df.groupby([COL_ANO, COL_TRIMESTRE])[COL_RECEITA].sum().reset_index()
+    
+    # Fazer coluna periodo. Os dados ficam = 2024-Q1
+    df_trimestre['periodo'] = df_trimestre[COL_ANO].astype(str) + '-' + df_trimestre[COL_TRIMESTRE].astype(str)
+    df_trimestre['periodo'] = df_trimestre['periodo'].astype(str)
+
+    # Criar coluna milhares para usar numeros mais pequenos no grafico
+    df_trimestre['receita_milhares'] = (df_trimestre[COL_RECEITA] / 1000).round(2)
+
+    CORTE = '2025-Q4'
+
+    # df com datas até corte
+    df_historico = df_trimestre[df_trimestre['periodo'] <= CORTE]
+    df_historico['tipo'] = 'Histórico'
+
+    # df com datas depois do corte
+    df_futuro = df_trimestre[df_trimestre['periodo'] > CORTE]
+    df_futuro['tipo'] = 'Futuro Real'
+
+    # df projecao com ticket promedio dos ultimos 4 trimestres
+    media_4_trimestres = df_historico['receita_milhares'].tail(4).mean()
+    df_projecao = df_futuro.copy()
+    df_projecao['receita_milhares'] = media_4_trimestres
+    df_projecao['tipo'] = 'Projeção'
+
+    # Concatenar dfs em um df
+    df_completo = pd.concat([df_historico, df_futuro, df_projecao], ignore_index=True)
+
+    sns.lineplot(
+        data=df_completo, x='periodo', y='receita_milhares',
+        hue='tipo', style='tipo', palette=PALETA,
+        markers=True, dashes={'Histórico':'', 'Futuro Real':'', 'Projeção': '--'},
+        ax=ax
+    )
+
+    ax.set_title("Evolução trimestral da receita")
+    ax.set_xlabel("Periodo (Ano-Trimestre)")
+    ax.set_ylabel("Receita (em milhares)")
+    ax.tick_params(axis='x', rotation=45)
+
+"""
+
 # --- Gerar e guardar os graficos
 def gerar_graficos(df, metricas):
-    """Gera e salva as 4 figuras"""
+    """Gera e salva as figuras"""
     
     # Linhas: receita por mes
     fig, ax = plt.subplots()
@@ -459,6 +591,38 @@ def gerar_graficos(df, metricas):
     respuesta = input("Deseja ver o painel resumo com os graficos? S/N: ")
     mostrar = respuesta.strip().upper() == "S"
     grafico_painel_resumo(df, metricas, mostrar=mostrar)
+
+    # Barras: receita_por_trimestre
+    fig, ax = plt.subplots()
+    grafico_receita_por_trimestre(ax, df)
+    guardar_figura(fig, "receita_por_trimestre")
+
+    # Heatmap: matriz_correlacao_trimestral
+    fig, ax = plt.subplots()
+    grafico_matriz_correlacao_trimestral(ax, df)
+    guardar_figura(fig, "matriz_correlacao_trimestral")
+
+    # Pizza: distribuicao_segmentos
+    fig, ax = plt.subplots()
+    grafico_distribuicao_segmentos(ax, df)
+    guardar_figura(fig, "distribuicao_segmentos")
+
+    # Histograma: vendas_por_faixa_preco
+    fig, ax = plt.subplots()
+    grafico_vendas_por_faixa_preco(ax, df)
+    guardar_figura(fig, "vendas_por_faixa_preco")
+
+    """# Linhas: tendencia_projecao
+    fig, ax = plt.subplots()
+    tendencia_projecao(ax, df)
+    guardar_figura(fig, "tendencia_projecao")"""
+
+    # painel_resumo_extra
+    respuesta = input("Deseja ver mais graficos? S/N: ")
+    mostrar = respuesta.strip().upper() == "S"
+    grafico_painel_resumo_extra(df, mostrar=mostrar)
+
+
 
 
 # ===========================================
